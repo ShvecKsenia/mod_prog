@@ -1,46 +1,50 @@
--- 1 Таблица пользователей (общая для студентов и преподавателей)
+-- Создание базы данных
+CREATE DATABASE practicetracker;
+\c practicetracker;
+
+-- 1. Таблица пользователей (общая для студентов и преподавателей)
 CREATE TABLE Users (
-    user_id SERIAL PRIMARY KEY, -- Автоинкремент
+    user_id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL, -- Для аутентификации
+    password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    patronymic VARCHAR(100), -- Отчество
-    user_type VARCHAR(20) NOT NULL CHECK (user_type IN ('student', 'teacher', 'admin')), -- Роль в системе
+    patronymic VARCHAR(100),
+    user_type VARCHAR(20) NOT NULL CHECK (user_type IN ('student', 'teacher', 'admin')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2 Таблица специальностей
+-- 2. Таблица специальностей
 CREATE TABLE Specialties (
     specialty_id SERIAL PRIMARY KEY,
-    code VARCHAR(20) UNIQUE NOT NULL, -- Код специальности, напр. "09.02.07"
-    name VARCHAR(255) NOT NULL, -- Название специальности
+    code VARCHAR(20) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
     description TEXT
 );
 
--- 3 Таблица учебных групп
+-- 3. Таблица учебных групп
 CREATE TABLE Groups (
     group_id SERIAL PRIMARY KEY,
-    group_name VARCHAR(50) UNIQUE NOT NULL, -- Название группы, напр. "ИСП-421"
-    specialty_id INTEGER NOT NULL REFERENCES Specialties(specialty_id) ON DELETE CASCADE, -- Внешний ключ
-    course INTEGER NOT NULL CHECK (course BETWEEN 1 AND 6) -- Курс обучения
+    group_name VARCHAR(50) UNIQUE NOT NULL,
+    specialty_id INTEGER NOT NULL REFERENCES Specialties(specialty_id) ON DELETE CASCADE,
+    course INTEGER NOT NULL CHECK (course BETWEEN 1 AND 6)
 );
 
--- 4 Таблица студентов (расширяет Users)
+-- 4. Таблица студентов (расширяет Users)
 CREATE TABLE Students (
-    student_id INTEGER PRIMARY KEY REFERENCES Users(user_id) ON DELETE CASCADE, -- Внешний ключ и первичный
-    group_id INTEGER NOT NULL REFERENCES Groups(group_id) ON DELETE CASCADE, -- Внешний ключ
-    record_book_number VARCHAR(50) UNIQUE -- Номер зачетной книжки
+    student_id INTEGER PRIMARY KEY REFERENCES Users(user_id) ON DELETE CASCADE,
+    group_id INTEGER NOT NULL REFERENCES Groups(group_id) ON DELETE CASCADE,
+    record_book_number VARCHAR(50) UNIQUE
 );
 
--- 5 Таблица преподавателей (расширяет Users)
+-- 5. Таблица преподавателей (расширяет Users)
 CREATE TABLE Teachers (
-    teacher_id INTEGER PRIMARY KEY REFERENCES Users(user_id) ON DELETE CASCADE, -- Внешний ключ и первичный
-    academic_degree VARCHAR(100), -- Ученая степень
-    academic_title VARCHAR(100) -- Ученое звание
+    teacher_id INTEGER PRIMARY KEY REFERENCES Users(user_id) ON DELETE CASCADE,
+    academic_degree VARCHAR(100),
+    academic_title VARCHAR(100)
 );
 
--- 6 Таблица компаний-партнеров
+-- 6. Таблица компаний-партнеров
 CREATE TABLE Companies (
     company_id SERIAL PRIMARY KEY,
     company_name VARCHAR(255) NOT NULL,
@@ -49,61 +53,113 @@ CREATE TABLE Companies (
     contact_email VARCHAR(255),
     contact_phone VARCHAR(50),
     address TEXT,
-    is_approved BOOLEAN DEFAULT FALSE -- Подтверждена ли администратором
+    is_approved BOOLEAN DEFAULT FALSE
 );
 
--- 7 Таблица вакансий на практику
+-- 7. Таблица вакансий на практику
 CREATE TABLE InternshipVacancies (
     vacancy_id SERIAL PRIMARY KEY,
-    company_id INTEGER NOT NULL REFERENCES Companies(company_id) ON DELETE CASCADE, -- Внешний ключ
-    title VARCHAR(255) NOT NULL, -- Должность/название вакансии
-    description TEXT NOT NULL, -- Описание задач
-    requirements TEXT, -- Требования к студенту
-    is_active BOOLEAN DEFAULT TRUE, -- Активна ли вакансия
-    created_by_teacher_id INTEGER REFERENCES Teachers(teacher_id), -- Кто создал (если от колледжа)
+    company_id INTEGER NOT NULL REFERENCES Companies(company_id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    requirements TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_by_teacher_id INTEGER REFERENCES Teachers(teacher_id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8 Таблица заявок от студентов
+-- 8. Таблица заявок от студентов
 CREATE TABLE Applications (
     application_id SERIAL PRIMARY KEY,
-    student_id INTEGER NOT NULL REFERENCES Students(student_id) ON DELETE CASCADE, -- Внешний ключ
-    vacancy_id INTEGER NOT NULL REFERENCES InternshipVacancies(vacancy_id) ON DELETE CASCADE, -- Внешний ключ
-    application_status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (application_status IN ('pending', 'approved', 'rejected', 'completed')), -- Статус заявки
+    student_id INTEGER NOT NULL REFERENCES Students(student_id) ON DELETE CASCADE,
+    vacancy_id INTEGER NOT NULL REFERENCES InternshipVacancies(vacancy_id) ON DELETE CASCADE,
+    application_status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (application_status IN ('pending', 'approved', 'rejected', 'completed')),
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    cover_letter TEXT, -- Сопроводительное письмо
-    assigned_supervisor_id INTEGER REFERENCES Teachers(teacher_id), -- Назначенный руководитель от колледжа
-    company_supervisor_name VARCHAR(255) -- ФИО руководителя от компании
+    cover_letter TEXT,
+    assigned_supervisor_id INTEGER REFERENCES Teachers(teacher_id),
+    company_supervisor_name VARCHAR(255)
 );
 
--- 9 Таблица дневников/журналов практики
+-- 9. Таблица дневников/журналов практики
 CREATE TABLE PracticeJournals (
     journal_id SERIAL PRIMARY KEY,
-    application_id INTEGER UNIQUE NOT NULL REFERENCES Applications(application_id) ON DELETE CASCADE, -- Внешний ключ (1 к 1 с заявкой)
+    application_id INTEGER UNIQUE NOT NULL REFERENCES Applications(application_id) ON DELETE CASCADE,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    goals TEXT NOT NULL, -- Цели практики
-    tasks TEXT NOT NULL -- Задачи практики
+    goals TEXT NOT NULL,
+    tasks TEXT NOT NULL
 );
 
--- 10 Таблица записей в дневнике
+-- 10. Таблица записей в дневнике
 CREATE TABLE JournalEntries (
     entry_id SERIAL PRIMARY KEY,
-    journal_id INTEGER NOT NULL REFERENCES PracticeJournals(journal_id) ON DELETE CASCADE, -- Внешний ключ
-    entry_date DATE NOT NULL, -- Дата рабочего дня
-    work_description TEXT NOT NULL, -- Описание выполненной работы
-    hours_worked DECIMAL(3,1) NOT NULL, -- Отработанные часы
-    entry_status VARCHAR(50) DEFAULT 'draft' CHECK (entry_status IN ('draft', 'submitted', 'approved_by_company', 'approved_by_college')), -- Статус записи
+    journal_id INTEGER NOT NULL REFERENCES PracticeJournals(journal_id) ON DELETE CASCADE,
+    entry_date DATE NOT NULL,
+    work_description TEXT NOT NULL,
+    hours_worked DECIMAL(3,1) NOT NULL,
+    entry_status VARCHAR(50) DEFAULT 'draft' CHECK (entry_status IN ('draft', 'submitted', 'approved_by_company', 'approved_by_college')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(journal_id, entry_date) -- Одна запись на день в одном журнале
+    UNIQUE(journal_id, entry_date)
 );
 
--- 11 Таблица итоговых отчетов
+-- 11. Таблица итоговых отчетов
 CREATE TABLE FinalReports (
     report_id SERIAL PRIMARY KEY,
-    application_id INTEGER UNIQUE NOT NULL REFERENCES Applications(application_id) ON DELETE CASCADE, -- Внешний ключ
-    report_file_path VARCHAR(500), -- Путь к файлу отчета на сервере
+    application_id INTEGER UNIQUE NOT NULL REFERENCES Applications(application_id) ON DELETE CASCADE,
+    report_file_path VARCHAR(500),
     submission_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    grade INTEGER CHECK (grade BETWEEN 1 AND 5), -- Оценка
-    teacher_comment TEXT -- Комментарий преподавателя
+    grade INTEGER CHECK (grade BETWEEN 1 AND 5),
+    teacher_comment TEXT
 );
+
+-- Создание индексов для улучшения производительности
+CREATE INDEX idx_applications_student_id ON Applications(student_id);
+CREATE INDEX idx_applications_vacancy_id ON Applications(vacancy_id);
+CREATE INDEX idx_applications_status ON Applications(application_status);
+CREATE INDEX idx_journal_entries_journal_id ON JournalEntries(journal_id);
+CREATE INDEX idx_journal_entries_date ON JournalEntries(entry_date);
+CREATE INDEX idx_vacancies_company_id ON InternshipVacancies(company_id);
+CREATE INDEX idx_vacancies_active ON InternshipVacancies(is_active);
+CREATE INDEX idx_students_group_id ON Students(group_id);
+
+-- Вставка тестовых данных
+INSERT INTO Specialties (code, name, description) VALUES 
+('09.02.07', 'Информационные системы и программирование', 'Разработка программного обеспечения и администрирование информационных систем'),
+('38.02.01', 'Экономика и бухгалтерский учет', 'Экономическое образование и бухгалтерский учет'),
+('15.02.09', 'Аддитивные технологии', 'Технологии 3D-печати и прототипирования');
+
+INSERT INTO Groups (group_name, specialty_id, course) VALUES 
+('ИСП-421', 1, 4),
+('ЭБУ-319', 2, 3),
+('АТ-222', 3, 2);
+
+INSERT INTO Users (email, password_hash, first_name, last_name, patronymic, user_type) VALUES 
+-- Администратор
+('admin@college.ru', 'hashed_password_1', 'Алексей', 'Иванов', 'Петрович', 'admin'),
+-- Преподаватели
+('petrov.ss@college.ru', 'hashed_password_2', 'Сергей', 'Петров', 'Сергеевич', 'teacher'),
+('sidorova.ma@college.ru', 'hashed_password_3', 'Мария', 'Сидорова', 'Александровна', 'teacher'),
+-- Студенты
+('student1@edu.ru', 'hashed_password_4', 'Иван', 'Козлов', 'Дмитриевич', 'student'),
+('student2@edu.ru', 'hashed_password_5', 'Елена', 'Смирнова', 'Владимировна', 'student'),
+('student3@edu.ru', 'hashed_password_6', 'Дмитрий', 'Попов', 'Андреевич', 'student');
+
+INSERT INTO Teachers (teacher_id, academic_degree, academic_title) VALUES 
+(2, 'Кандидат технических наук', 'Доцент'),
+(3, 'Магистр', 'Старший преподаватель');
+
+INSERT INTO Students (student_id, group_id, record_book_number) VALUES 
+(4, 1, 'ИСП-2023-001'),
+(5, 1, 'ИСП-2023-002'),
+(6, 2, 'ЭБУ-2023-001');
+
+INSERT INTO Companies (company_name, description, website, contact_email, contact_phone, address, is_approved) VALUES 
+('ООО "ТехноСофт"', 'IT-компания, специализирующаяся на веб-разработке', 'https://technosoft.ru', 'hr@technosoft.ru', '+7-495-123-45-67', 'Москва, ул. Ленина, 25', true),
+('АО "ПромБанк"', 'Крупный региональный банк', 'https://prombank.ru', 'internship@prombank.ru', '+7-495-765-43-21', 'Москва, пр. Мира, 10', true),
+('ООО "ИнновацииБудущего"', 'Стартап в области аддитивных технологий', 'https://future-innovations.ru', 'info@future-innovations.ru', '+7-495-555-55-55', 'Москва, ул. Советская, 15', false);
+
+INSERT INTO InternshipVacancies (company_id, title, description, requirements, created_by_teacher_id) VALUES 
+(1, 'Стажер-программист Python', 'Разработка веб-приложений на Django и Flask', 'Знание Python, основ баз данных, HTML/CSS', 2),
+(1, 'Стажер-фронтенд разработчик', 'Разработка пользовательских интерфейсов на React', 'Знание JavaScript, React, HTML5/CSS3', 2),
+(2, 'Стажер-бухгалтер', 'Помощь в ведении бухгалтерского учета', 'Знание основ бухгалтерии, внимательность', 3),
+(3, 'Стажер-инженер 3D-печати', 'Работа с 3D-принтерами и создание моделей', 'Знание CAD-программ, интерес к 3D-печати', 2);
