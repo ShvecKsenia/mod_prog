@@ -1,0 +1,109 @@
+-- 1 Таблица пользователей (общая для студентов и преподавателей)
+CREATE TABLE Users (
+    user_id SERIAL PRIMARY KEY, -- Автоинкремент
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL, -- Для аутентификации
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    patronymic VARCHAR(100), -- Отчество
+    user_type VARCHAR(20) NOT NULL CHECK (user_type IN ('student', 'teacher', 'admin')), -- Роль в системе
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2 Таблица специальностей
+CREATE TABLE Specialties (
+    specialty_id SERIAL PRIMARY KEY,
+    code VARCHAR(20) UNIQUE NOT NULL, -- Код специальности, напр. "09.02.07"
+    name VARCHAR(255) NOT NULL, -- Название специальности
+    description TEXT
+);
+
+-- 3 Таблица учебных групп
+CREATE TABLE Groups (
+    group_id SERIAL PRIMARY KEY,
+    group_name VARCHAR(50) UNIQUE NOT NULL, -- Название группы, напр. "ИСП-421"
+    specialty_id INTEGER NOT NULL REFERENCES Specialties(specialty_id) ON DELETE CASCADE, -- Внешний ключ
+    course INTEGER NOT NULL CHECK (course BETWEEN 1 AND 6) -- Курс обучения
+);
+
+-- 4 Таблица студентов (расширяет Users)
+CREATE TABLE Students (
+    student_id INTEGER PRIMARY KEY REFERENCES Users(user_id) ON DELETE CASCADE, -- Внешний ключ и первичный
+    group_id INTEGER NOT NULL REFERENCES Groups(group_id) ON DELETE CASCADE, -- Внешний ключ
+    record_book_number VARCHAR(50) UNIQUE -- Номер зачетной книжки
+);
+
+-- 5 Таблица преподавателей (расширяет Users)
+CREATE TABLE Teachers (
+    teacher_id INTEGER PRIMARY KEY REFERENCES Users(user_id) ON DELETE CASCADE, -- Внешний ключ и первичный
+    academic_degree VARCHAR(100), -- Ученая степень
+    academic_title VARCHAR(100) -- Ученое звание
+);
+
+-- 6 Таблица компаний-партнеров
+CREATE TABLE Companies (
+    company_id SERIAL PRIMARY KEY,
+    company_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    website VARCHAR(255),
+    contact_email VARCHAR(255),
+    contact_phone VARCHAR(50),
+    address TEXT,
+    is_approved BOOLEAN DEFAULT FALSE -- Подтверждена ли администратором
+);
+
+-- 7 Таблица вакансий на практику
+CREATE TABLE InternshipVacancies (
+    vacancy_id SERIAL PRIMARY KEY,
+    company_id INTEGER NOT NULL REFERENCES Companies(company_id) ON DELETE CASCADE, -- Внешний ключ
+    title VARCHAR(255) NOT NULL, -- Должность/название вакансии
+    description TEXT NOT NULL, -- Описание задач
+    requirements TEXT, -- Требования к студенту
+    is_active BOOLEAN DEFAULT TRUE, -- Активна ли вакансия
+    created_by_teacher_id INTEGER REFERENCES Teachers(teacher_id), -- Кто создал (если от колледжа)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8 Таблица заявок от студентов
+CREATE TABLE Applications (
+    application_id SERIAL PRIMARY KEY,
+    student_id INTEGER NOT NULL REFERENCES Students(student_id) ON DELETE CASCADE, -- Внешний ключ
+    vacancy_id INTEGER NOT NULL REFERENCES InternshipVacancies(vacancy_id) ON DELETE CASCADE, -- Внешний ключ
+    application_status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (application_status IN ('pending', 'approved', 'rejected', 'completed')), -- Статус заявки
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    cover_letter TEXT, -- Сопроводительное письмо
+    assigned_supervisor_id INTEGER REFERENCES Teachers(teacher_id), -- Назначенный руководитель от колледжа
+    company_supervisor_name VARCHAR(255) -- ФИО руководителя от компании
+);
+
+-- 9 Таблица дневников/журналов практики
+CREATE TABLE PracticeJournals (
+    journal_id SERIAL PRIMARY KEY,
+    application_id INTEGER UNIQUE NOT NULL REFERENCES Applications(application_id) ON DELETE CASCADE, -- Внешний ключ (1 к 1 с заявкой)
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    goals TEXT NOT NULL, -- Цели практики
+    tasks TEXT NOT NULL -- Задачи практики
+);
+
+-- 10 Таблица записей в дневнике
+CREATE TABLE JournalEntries (
+    entry_id SERIAL PRIMARY KEY,
+    journal_id INTEGER NOT NULL REFERENCES PracticeJournals(journal_id) ON DELETE CASCADE, -- Внешний ключ
+    entry_date DATE NOT NULL, -- Дата рабочего дня
+    work_description TEXT NOT NULL, -- Описание выполненной работы
+    hours_worked DECIMAL(3,1) NOT NULL, -- Отработанные часы
+    entry_status VARCHAR(50) DEFAULT 'draft' CHECK (entry_status IN ('draft', 'submitted', 'approved_by_company', 'approved_by_college')), -- Статус записи
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(journal_id, entry_date) -- Одна запись на день в одном журнале
+);
+
+-- 11 Таблица итоговых отчетов
+CREATE TABLE FinalReports (
+    report_id SERIAL PRIMARY KEY,
+    application_id INTEGER UNIQUE NOT NULL REFERENCES Applications(application_id) ON DELETE CASCADE, -- Внешний ключ
+    report_file_path VARCHAR(500), -- Путь к файлу отчета на сервере
+    submission_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    grade INTEGER CHECK (grade BETWEEN 1 AND 5), -- Оценка
+    teacher_comment TEXT -- Комментарий преподавателя
+);
